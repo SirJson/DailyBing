@@ -5,6 +5,8 @@ using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using LanguageExt.Common;
+using static LanguageExt.Prelude;
 
 namespace DailyBing
 {
@@ -30,10 +32,16 @@ namespace DailyBing
         /// <param name="httpClient">The <see cref="HttpClient" />.</param>
         /// <param name="requestUri">The URI that the request will be sent to.</param>
         /// <returns>The response parsed as an object of the generic type.</returns>
-        public static async Task<T> GetJsonAsync<T>(this HttpClient httpClient, string requestUri)
+        public static async Task<Result<T>> GetJsonAsync<T>(this HttpClient httpClient, string requestUri) where T : new()
         {
-            var stringContent = await httpClient.GetStringAsync(requestUri);
-            return JsonSerializer.Deserialize<T>(stringContent, JsonSerializerOptionsProvider.Options);
+            var res = from x in TryAsync(httpClient.GetStringAsync(requestUri))
+                      from y in Try(
+                          JsonSerializer.Deserialize<T>(
+                              x,
+                              JsonSerializerOptionsProvider.Options)).ToAsync()
+                      select y;
+
+            return await res.Try();
         }
 
         /// <summary>
@@ -44,7 +52,10 @@ namespace DailyBing
         /// <param name="requestUri">The URI that the request will be sent to.</param>
         /// <param name="content">Content for the request body. This will be JSON-encoded and sent as a string.</param>
         /// <returns>The response parsed as an object of the generic type.</returns>
-        public static Task PostJsonAsync(this HttpClient httpClient, string requestUri, object content) => httpClient.SendJsonAsync(HttpMethod.Post, requestUri, content);
+        public static Task PostJsonAsync(this HttpClient httpClient, string requestUri, object content) => httpClient.SendJsonAsync(
+            HttpMethod.Post,
+            requestUri,
+            content);
 
         /// <summary>
         ///     Sends a POST request to the specified URI, including the specified <paramref name="content" />
@@ -55,7 +66,10 @@ namespace DailyBing
         /// <param name="requestUri">The URI that the request will be sent to.</param>
         /// <param name="content">Content for the request body. This will be JSON-encoded and sent as a string.</param>
         /// <returns>The response parsed as an object of the generic type.</returns>
-        public static Task<T> PostJsonAsync<T>(this HttpClient httpClient, string requestUri, object content) => httpClient.SendJsonAsync<T>(HttpMethod.Post, requestUri, content);
+        public static Task<T> PostJsonAsync<T>(this HttpClient httpClient, string requestUri, object content) => httpClient.SendJsonAsync<T>(
+            HttpMethod.Post,
+            requestUri,
+            content);
 
         /// <summary>
         ///     Sends a PUT request to the specified URI, including the specified <paramref name="content" />
@@ -64,7 +78,10 @@ namespace DailyBing
         /// <param name="httpClient">The <see cref="HttpClient" />.</param>
         /// <param name="requestUri">The URI that the request will be sent to.</param>
         /// <param name="content">Content for the request body. This will be JSON-encoded and sent as a string.</param>
-        public static Task PutJsonAsync(this HttpClient httpClient, string requestUri, object content) => httpClient.SendJsonAsync(HttpMethod.Put, requestUri, content);
+        public static Task PutJsonAsync(this HttpClient httpClient, string requestUri, object content) => httpClient.SendJsonAsync(
+            HttpMethod.Put,
+            requestUri,
+            content);
 
         /// <summary>
         ///     Sends a PUT request to the specified URI, including the specified <paramref name="content" />
@@ -75,7 +92,10 @@ namespace DailyBing
         /// <param name="requestUri">The URI that the request will be sent to.</param>
         /// <param name="content">Content for the request body. This will be JSON-encoded and sent as a string.</param>
         /// <returns>The response parsed as an object of the generic type.</returns>
-        public static Task<T> PutJsonAsync<T>(this HttpClient httpClient, string requestUri, object content) => httpClient.SendJsonAsync<T>(HttpMethod.Put, requestUri, content);
+        public static Task<T> PutJsonAsync<T>(this HttpClient httpClient, string requestUri, object content) => httpClient.SendJsonAsync<T>(
+            HttpMethod.Put,
+            requestUri,
+            content);
 
         /// <summary>
         ///     Sends an HTTP request to the specified URI, including the specified <paramref name="content" />
@@ -85,7 +105,10 @@ namespace DailyBing
         /// <param name="method">The HTTP method.</param>
         /// <param name="requestUri">The URI that the request will be sent to.</param>
         /// <param name="content">Content for the request body. This will be JSON-encoded and sent as a string.</param>
-        public static Task SendJsonAsync(this HttpClient httpClient, HttpMethod method, string requestUri, object content) => httpClient.SendJsonAsync<IgnoreResponse>(method, requestUri, content);
+        public static Task SendJsonAsync(this HttpClient httpClient, HttpMethod method, string requestUri, object content) => httpClient.SendJsonAsync<IgnoreResponse>(
+            method,
+            requestUri,
+            content);
 
         /// <summary>
         ///     Sends an HTTP request to the specified URI, including the specified <paramref name="content" />
@@ -99,22 +122,29 @@ namespace DailyBing
         /// <returns>The response parsed as an object of the generic type.</returns>
         public static async Task<T> SendJsonAsync<T>(this HttpClient httpClient, HttpMethod method, string requestUri, object content)
         {
-            var requestJson = JsonSerializer.Serialize(content, JsonSerializerOptionsProvider.Options);
-            var response = await httpClient.SendAsync(new HttpRequestMessage(method, requestUri)
-            {
-                Content = new StringContent(requestJson, Encoding.UTF8, "application/json")
-            });
+            var requestJson = JsonSerializer.Serialize(
+                content,
+                JsonSerializerOptionsProvider.Options);
+            var response = await httpClient.SendAsync(
+                new HttpRequestMessage(
+                        method,
+                        requestUri)
+                    {
+                        Content = new StringContent(
+                            requestJson,
+                            Encoding.UTF8,
+                            "application/json")
+                    });
 
             // Make sure the call was successful before we
             // attempt to process the response content
             _ = response.EnsureSuccessStatusCode();
 
-            if (typeof(T) == typeof(IgnoreResponse))
-            {
-                return default;
-            }
+            if (typeof(T) == typeof(IgnoreResponse)) return default;
             var stringContent = await response.Content.ReadAsStringAsync();
-            return JsonSerializer.Deserialize<T>(stringContent, JsonSerializerOptionsProvider.Options);
+            return JsonSerializer.Deserialize<T>(
+                stringContent,
+                JsonSerializerOptionsProvider.Options);
         }
 
         private class IgnoreResponse
