@@ -16,7 +16,7 @@ namespace DailyBing
 
         private static async Task Main()
         {
-            var logPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Personal), "DailyBing.log");
+            var logPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "DailyBing.log");
             Log.Logger = new LoggerConfiguration()
                 .WriteTo.File(logPath, fileSizeLimitBytes: 200000, rollOnFileSizeLimit: true, retainedFileCountLimit: 1)
                 .WriteTo.Console()
